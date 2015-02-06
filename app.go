@@ -1,12 +1,12 @@
-package main
+package songtags
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
-	"os"
 	"os/exec"
 	"regexp"
 	"strings"
@@ -16,9 +16,9 @@ func chromaprint(path string, raw bool) (duration, fingerprint string) {
 	// Setup command
 	var cmd *exec.Cmd
 	if raw {
-		cmd = exec.Command("fpcalc", "-raw", os.Args[1])
+		cmd = exec.Command("fpcalc", "-raw", path)
 	} else {
-		cmd = exec.Command("fpcalc", os.Args[1])
+		cmd = exec.Command("fpcalc", path)
 	}
 
 	// Generate fingerprint
@@ -74,9 +74,10 @@ type Artist struct {
 	Name string
 }
 
-func lookupSong(duration, fingerprint string) {
+func lookupSong(duration, fingerprint string) string {
 	url := "http://api.acoustid.org/v2/lookup?client=8XaBELgH&meta=recordings+releasegroups+compress&duration=" + duration + "&fingerprint=" + fingerprint
 	response, err := http.Get(url)
+	var finalRes string
 	if err != nil {
 		log.Fatal(err)
 	} else {
@@ -93,27 +94,31 @@ func lookupSong(duration, fingerprint string) {
 			log.Fatal(err)
 		}
 
+		var buffer bytes.Buffer
 		if lookup.Status == "ok" {
 			for _, res := range lookup.Results {
 				for _, rec := range res.Recordings {
-					fmt.Println("Song title:", rec.Title)
-					fmt.Println("Duration:", rec.Duration)
-					fmt.Println("Release groups:")
+					fmt.Fprintln(&buffer, "Song title:", rec.Title)
+					fmt.Fprintln(&buffer, "Duration:", rec.Duration)
+					fmt.Fprintln(&buffer, "Release groups:")
 					for _, rg := range rec.Releasegroups {
 						for _, art := range rg.Artists {
-							fmt.Println("    Artist:", art.Name)
+							fmt.Fprintln(&buffer, "    Artist:", art.Name)
 						}
 
-						fmt.Println("        Type:", rg.Type)
-						fmt.Println("        Title:", rg.Title)
-						fmt.Println()
+						fmt.Fprintln(&buffer, "        Type:", rg.Type)
+						fmt.Fprintln(&buffer, "        Title:", rg.Title)
+						fmt.Fprintln(&buffer)
 					}
 				}
 			}
 		}
+		finalRes = string(buffer.Bytes())
+		fmt.Println(finalRes)
 	}
+	return finalRes
 }
 
-func main() {
-	lookupSong(chromaprint(os.Args[1], false))
+func ForFile(fp string) string {
+	return lookupSong(chromaprint(fp, false))
 }
