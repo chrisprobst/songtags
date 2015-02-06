@@ -114,7 +114,6 @@ func lookupSong(duration, fingerprint string) string {
 			}
 		}
 		finalRes = string(buffer.Bytes())
-		fmt.Println(finalRes)
 	}
 	return finalRes
 }
